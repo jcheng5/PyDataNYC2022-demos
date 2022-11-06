@@ -1,0 +1,13 @@
+astropy
+ipyleaflet
+matplotlib
+numpy
+pandas
+plotly
+pytz
+shiny
+shinylive
+shinywidgets
+suntime
+timezonefinder
+git+https://github.com/jcheng5/py-shinydashboard
