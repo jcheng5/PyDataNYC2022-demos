@@ -2,7 +2,6 @@ import math
 from functools import reduce
 from operator import add
 from statistics import mean
-
 import numpy as np
 
 WRIST = 0
@@ -33,11 +32,24 @@ def hand_to_camera_eye(hands, detect_ok=False):
     # position
     # TODO: Use spherical coordinates instead of cartesian
 
+    # x: left (0) to right (1)
+    # y: top (0) to bottom (1)
+    # z: close (more negative) to far (more positive)
+
+    width = hands["image"]["width"]
+    height = hands["image"]["height"]
+
     left_hand = hands["multiHandedness"][0]["index"] == 0
     hand = hands["multiHandLandmarks"][0]
 
+    def hand_coords(landmark: int):
+        lm = hand[landmark]
+        # normalize y scale to match x scale (which z already does)
+        return np.array([lm["x"], lm["y"] * height / width, lm["z"]])
+
+
     def rel_hand(start_pos: int, end_pos: int):
-        return np.subtract(list(hand[start_pos].values()), list(hand[end_pos].values()))
+        return np.subtract(hand_coords(start_pos), hand_coords(end_pos))
 
     if detect_ok:
         # If the distance between the thumbtip and index finger tip are pretty close,
@@ -48,36 +60,29 @@ def hand_to_camera_eye(hands, detect_ok=False):
             return None
 
     if not left_hand:
-        normal_vec = np.cross(
-            rel_hand(PINKY_MCP, WRIST),
-            rel_hand(INDEX_FINGER_MCP, WRIST),
-        )
+        p1 = rel_hand(PINKY_MCP, WRIST)
+        p2 = rel_hand(INDEX_FINGER_MCP, WRIST)
     else:
-        normal_vec = np.cross(
-            rel_hand(INDEX_FINGER_MCP, WRIST),
-            rel_hand(PINKY_MCP, WRIST),
-        )
+        p1 = rel_hand(INDEX_FINGER_MCP, WRIST)
+        p2 = rel_hand(PINKY_MCP, WRIST)
+    normal_vec = np.cross(p1, p2)
     normal_unit_vec = normal_vec / np.linalg.norm(normal_vec)
 
-    def list_to_xyz(x):
-        x = list(map(lambda y: round(y, 2), x))
-        return dict(x=x[0], y=x[1], z=x[2])
+    # Invert to convert from the direction we're looking towards,
+    # to the direction the camera is located
+    eye_vec = normal_unit_vec * -1.0
 
-    # Invert, for some reason
-    normal_unit_vec = normal_unit_vec * -1.0
-    normal_unit_vec[1] *= 2.0
+    # Zoom out (get further from the origin)
+    eye_vec *= 2
 
-    # Stay a consistent distance from the origin
-    dist = 2
-    magnitude = math.sqrt(reduce(add, [a**2 for a in normal_unit_vec]))
-    normal_unit_vec = [a / magnitude * dist for a in normal_unit_vec]
+    # Less precision
+    eye_vec = eye_vec.round(3)
 
-    new_eye = list_to_xyz(normal_unit_vec)
     return {
-        # Adjust locations to match camera position
-        "x": new_eye["z"],
-        "y": new_eye["x"],
-        "z": new_eye["y"],
+        # Rotate axes to match plotly
+        "x": eye_vec[2],
+        "y": eye_vec[0],
+        "z": eye_vec[1],
     }
 
 

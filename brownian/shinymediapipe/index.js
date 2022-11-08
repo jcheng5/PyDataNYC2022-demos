@@ -101,7 +101,7 @@ class HandInputBinding extends Shiny.InputBinding {
         // Quick and dirty rounding to 4 decimals
         value = JSON.parse(JSON.stringify(value, function(key, value) {
           if (key === "image") {
-            return undefined;
+            return {width: value.width, height: value.height};
           }
 
           if (typeof(value) === "number") {
@@ -121,26 +121,5 @@ class HandInputBinding extends Shiny.InputBinding {
     // TODO: Destroy everything
   }
 }
-
-// var handInputBinding = new Shiny.InputBinding();
-// $.extend(handInputBinding, {
-//   find: function(scope) {
-//     return $(scope).find(".increment");
-//   },
-//   getValue: function(el) {
-//     return parseInt($(el).text());
-//   },
-//   setValue: function(el, value) {
-//     $(el).text(value);
-//   },
-//   subscribe: function(el, callback) {
-//     $(el).on("change.incrementBinding", function(e) {
-//       callback();
-//     });
-//   },
-//   unsubscribe: function(el) {
-//     $(el).off(".incrementBinding");
-//   }
-// });
 
 Shiny.inputBindings.register(new HandInputBinding());
