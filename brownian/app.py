@@ -3,10 +3,11 @@ from pathlib import Path
 
 from brownian_motion import brownian_data, brownian_widget
 from mediapipe import hand_to_camera_eye, xyz_mean
-from shinymediapipe import input_hand
+from shiny import App, reactive, render, req, ui
 from shinywidgets import output_widget, register_widget
 
-from shiny import App, reactive, render, req, ui
+from shinymediapipe import input_hand
+from smoother import reactive_smooth
 
 # Check that JS prerequisites are installed
 if not (Path(__file__).parent / "shinymediapipe" / "node_modules").is_dir():
@@ -22,7 +23,7 @@ app_ui = ui.page_fluid(
     ui.layout_sidebar(
         ui.panel_sidebar(
             ui.input_action_button("data_btn", "New Data"),
-            ui.p(ui.input_switch("use_smoothing", "Apply motion smoothing", True)),
+            ui.p(ui.input_switch("use_smoothing", "Smooth tracking", True)),
         ),
         ui.panel_main(output_widget("plot"), class_="card"),
     ),
@@ -32,7 +33,6 @@ app_ui = ui.page_fluid(
             ui.div(ui.tags.strong("x:"), ui.output_text("x_debug", inline=True)),
             ui.div(ui.tags.strong("y:"), ui.output_text("y_debug", inline=True)),
             ui.div(ui.tags.strong("z:"), ui.output_text("z_debug", inline=True)),
-            ui.div(ui.tags.strong("mag:"), ui.output_text("mag_debug", inline=True)),
             left="12px",
             bottom="12px",
             width="200px",
@@ -108,45 +108,5 @@ def server(input, output, session):
     def z_debug():
         return camera_eye()["z"]
 
-    @output
-    @render.text
-    def mag_debug():
-        eye = camera_eye()
-
-        return f"{round(math.sqrt(eye['x']**2 + eye['y']**2 + eye['z']**2), 2)}"
-
 
 app = App(app_ui, server)
-
-
-def reactive_smooth(n_samples, smoother, *, filter_none=True):
-    """Decorator for smoothing out reactive calculations over multiple samples"""
-
-    def wrapper(calc):
-        buffer = []  # Ring buffer of capacity `n_samples`
-        result = reactive.Value(None)  # Holds the most recent smoothed result
-
-        @reactive.Effect
-        def _():
-            # Get latest value. Because this is happening in a reactive Effect, we'll
-            # automatically take a reactive dependency on whatever is happening in the
-            # calc().
-            new_value = calc()
-            buffer.append(new_value)
-            while len(buffer) > n_samples:
-                buffer.pop(0)
-
-            if not filter_none:
-                result.set(smoother(buffer))
-            else:
-                # The filter cannot handle None values; remove any in the buffer
-                filt_samples = [s for s in buffer if s is not None]
-                if len(filt_samples) == 0:
-                    result.set(None)
-                else:
-                    result.set(smoother(filt_samples))
-
-        # The return value for the wrapper
-        return result.get
-
-    return wrapper
