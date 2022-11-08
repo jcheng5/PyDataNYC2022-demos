@@ -19,8 +19,13 @@ if not (Path(__file__).parent / "shinymediapipe" / "node_modules").is_dir():
 debug = True
 
 app_ui = ui.page_fluid(
-    ui.input_action_button("data_btn", "New Data"),
-    output_widget("plot"),
+    ui.layout_sidebar(
+        ui.panel_sidebar(
+            ui.input_action_button("data_btn", "New Data"),
+            ui.p(ui.input_switch("use_smoothing", "Apply motion smoothing", True)),
+        ),
+        ui.panel_main(output_widget("plot"), class_="card"),
+    ),
     input_hand("hand", debug=debug, throttle_delay_secs=0.05),
     (
         ui.panel_fixed(
@@ -82,7 +87,9 @@ def server(input, output, session):
     @reactive.Effect
     def update_plotly_camera():
         """Update Plotly camera using the hand tracking"""
-        widget.layout.scene.camera.eye = smooth_camera_eye()
+        widget.layout.scene.camera.eye = (
+            smooth_camera_eye() if input.use_smoothing() else camera_eye()
+        )
 
     # DEBUGGING ====
 

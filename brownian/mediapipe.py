@@ -39,7 +39,9 @@ def hand_to_camera_eye(hands, detect_ok=False):
     width = hands["image"]["width"]
     height = hands["image"]["height"]
 
-    left_hand = hands["multiHandedness"][0]["index"] == 0
+    # Note that the handedness is flipped (0 is normally left), because this app
+    # is designed to be used with a selfie cam, so the image is mirrored
+    left_hand = hands["multiHandedness"][0]["index"] != 0
     hand = hands["multiHandLandmarks"][0]
 
     def hand_coords(landmark: int):
@@ -59,7 +61,7 @@ def hand_to_camera_eye(hands, detect_ok=False):
         if ok_dist < ref_dist * 2:
             return None
 
-    if not left_hand:
+    if left_hand:
         p1 = rel_hand(PINKY_MCP, WRIST)
         p2 = rel_hand(INDEX_FINGER_MCP, WRIST)
     else:

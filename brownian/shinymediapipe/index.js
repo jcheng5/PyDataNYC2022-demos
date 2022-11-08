@@ -1,9 +1,14 @@
-function mediapipeHand({callback, videoElement, canvasElement, options = {}, debug = false} = {}) {
-
+function mediapipeHand({
+  callback,
+  videoElement,
+  canvasElement,
+  options = {},
+  debug = false,
+} = {}) {
   // Code taken from https://google.github.io/mediapipe/solutions/hands.html
   // and modified to set the Shiny input value when a hand is detected.
 
-  const canvasCtx = canvasElement.getContext('2d');
+  const canvasCtx = canvasElement.getContext("2d");
 
   function onResults(results) {
     // Set Shiny input value
@@ -19,58 +24,70 @@ function mediapipeHand({callback, videoElement, canvasElement, options = {}, deb
     // Draw hand on canvas
     canvasCtx.save();
     canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+
+    // Flip image for selfie cam
+    canvasCtx.scale(-1, 1);
+    canvasCtx.translate(-canvasElement.width, 0);
+
     canvasCtx.drawImage(
-        results.image, 0, 0, canvasElement.width, canvasElement.height);
+      results.image,
+      0,
+      0,
+      canvasElement.width,
+      canvasElement.height
+    );
     if (results.multiHandLandmarks) {
       for (const landmarks of results.multiHandLandmarks) {
-        drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS,
-                      {color: '#00FF00', lineWidth: 2});
-        drawLandmarks(canvasCtx, landmarks, {color: '#FFFFFF', radius: 1});
+        drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {
+          color: "#00FF00",
+          lineWidth: 2,
+        });
+        drawLandmarks(canvasCtx, landmarks, { color: "#FFFFFF", radius: 1 });
       }
     }
     canvasCtx.restore();
   }
-  const hands = new Hands({locateFile: (file) => {
-    // TODO: This is totally cheating; this path is supposed to be an
-    // implementation detail
-    return `lib/@mediapipe/hands-1.0.0/${file}`;
-  }});
+  const hands = new Hands({
+    locateFile: (file) => {
+      // TODO: This is totally cheating; this path is supposed to be an
+      // implementation detail
+      return `lib/@mediapipe/hands-1.0.0/${file}`;
+    },
+  });
   hands.setOptions(options);
   hands.onResults(onResults);
 
   const camera = new Camera(videoElement, {
     onFrame: async () => {
-      await hands.send({image: videoElement});
+      await hands.send({ image: videoElement });
     },
     width: 640,
-    height: 480
+    height: 480,
   });
   camera.start();
-
 }
-
-
 
 class HandInputBinding extends Shiny.InputBinding {
   find(scope) {
     return $(scope).find("template.mediapipe-hand-input");
   }
 
-  initialize(el) {
-  }
+  initialize(el) {}
 
   getValue(el) {
     return el.mediapipe_result || null;
   }
 
   setValue(el, value) {
-    console.warn("setValue called on HandInputBinding, this is not implemented");
+    console.warn(
+      "setValue called on HandInputBinding, this is not implemented"
+    );
   }
 
   getRatePolicy(el) {
     return {
       policy: "throttle",
-      delay: el.dataset.throttleDelay ?? 100
+      delay: el.dataset.throttleDelay ?? 100,
     };
   }
 
@@ -83,38 +100,44 @@ class HandInputBinding extends Shiny.InputBinding {
     const videoEl = document.createElement("video");
     videoEl.style.display = "none";
     const canvasEl = document.createElement("canvas");
+    canvasEl.classList.add("shinymediapipe-debug-preview");
     canvasEl.style.display = debug ? "block" : "none";
-    canvasEl.style.position = "fixed";
-    canvasEl.style.right = "12px";
-    canvasEl.style.bottom = "12px";
-    canvasEl.style.width = "320px";
-    canvasEl.style.height = "240px";
-    canvasEl.style.opacity = 0.85;
+    canvasEl.addEventListener("click", () => {
+      canvasEl.classList.toggle("pinned");
+    });
 
     document.body.appendChild(videoEl);
     document.body.appendChild(canvasEl);
 
-    mediapipeHand({callback: (value) => {
-      // We should allow the options to indicate what values are desired by the server.
+    mediapipeHand({
+      callback: (value) => {
+        // We should allow the options to indicate what values are desired by the server.
 
-      if (value) {
-        // Quick and dirty rounding to 4 decimals
-        value = JSON.parse(JSON.stringify(value, function(key, value) {
-          if (key === "image") {
-            return {width: value.width, height: value.height};
-          }
+        if (value) {
+          // Quick and dirty rounding to 4 decimals
+          value = JSON.parse(
+            JSON.stringify(value, function (key, value) {
+              if (key === "image") {
+                return { width: value.width, height: value.height };
+              }
 
-          if (typeof(value) === "number") {
-            return +value.toFixed(precision);
-          } else {
-            return value;
-          }
-        }));
-      }
+              if (typeof value === "number") {
+                return +value.toFixed(precision);
+              } else {
+                return value;
+              }
+            })
+          );
+        }
 
-      el.mediapipe_result = value;
-      callback(true);
-    }, videoElement: videoEl, canvasElement: canvasEl, options, debug});
+        el.mediapipe_result = value;
+        callback(true);
+      },
+      videoElement: videoEl,
+      canvasElement: canvasEl,
+      options,
+      debug,
+    });
   }
 
   unsubscribe(el) {

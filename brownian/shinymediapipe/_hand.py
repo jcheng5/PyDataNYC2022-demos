@@ -30,6 +30,7 @@ def dependencies() -> list[HTMLDependency]:
             "1.0.0",
             source={"package": "shinymediapipe", "subdir": ""},
             script={"src": "index.js"},
+            stylesheet={"href": "styles.css"}
         ),
     ]
 
