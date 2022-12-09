@@ -49,7 +49,6 @@ def hand_to_camera_eye(hands, detect_ok=False):
         # normalize y scale to match x scale (which z already does)
         return np.array([lm["x"], lm["y"] * height / width, lm["z"]])
 
-
     def rel_hand(start_pos: int, end_pos: int):
         return np.subtract(hand_coords(start_pos), hand_coords(end_pos))
 
@@ -67,6 +66,7 @@ def hand_to_camera_eye(hands, detect_ok=False):
     else:
         p1 = rel_hand(INDEX_FINGER_MCP, WRIST)
         p2 = rel_hand(PINKY_MCP, WRIST)
+    up = rel_hand(WRIST, MIDDLE_FINGER_MCP)
     normal_vec = np.cross(p1, p2)
     normal_unit_vec = normal_vec / np.linalg.norm(normal_vec)
 
@@ -81,16 +81,30 @@ def hand_to_camera_eye(hands, detect_ok=False):
     eye_vec = eye_vec.round(3)
 
     return {
-        # Rotate axes to match plotly
-        "x": eye_vec[2],
-        "y": eye_vec[0],
-        "z": eye_vec[1],
+        "eye": {
+            # Rotate axes to match plotly
+            "x": eye_vec[2],
+            "y": eye_vec[0],
+            "z": eye_vec[1],
+        },
+        "up": {
+            "x": up[2],
+            "y": -up[0],
+            "z": up[1],
+        },
     }
 
 
-def xyz_mean(points):
+def info_smoother(points):
     return dict(
-        x=mean([p["x"] for p in points]),
-        y=mean([p["y"] for p in points]),
-        z=mean([p["z"] for p in points]),
+        eye=dict(
+            x=mean([p["eye"]["x"] for p in points]),
+            y=mean([p["eye"]["y"] for p in points]),
+            z=mean([p["eye"]["z"] for p in points]),
+        ),
+        up=dict(
+            x=mean([p["up"]["x"] for p in points]),
+            y=mean([p["up"]["y"] for p in points]),
+            z=mean([p["up"]["z"] for p in points]),
+        ),
     )

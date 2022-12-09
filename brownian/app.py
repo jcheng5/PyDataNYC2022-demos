@@ -2,7 +2,7 @@ import math
 from pathlib import Path
 
 from brownian_motion import brownian_data, brownian_widget
-from mediapipe import hand_to_camera_eye, xyz_mean
+from mediapipe import hand_to_camera_eye, info_smoother
 from shiny import App, reactive, render, req, ui
 from shinywidgets import output_widget, register_widget
 
@@ -20,6 +20,7 @@ if not (Path(__file__).parent / "shinymediapipe" / "node_modules").is_dir():
 debug = True
 
 app_ui = ui.page_fluid(
+    ui.h2("Brownian motion"),
     ui.layout_sidebar(
         ui.panel_sidebar(
             ui.input_action_button("data_btn", "New Data"),
@@ -72,7 +73,7 @@ def server(input, output, session):
     # HAND TRACKING ====
 
     @reactive.Calc
-    def camera_eye():
+    def camera_info():
         """The eye position, as reflected by the hand input"""
         hand_val = input.hand()
         req(hand_val)
@@ -82,31 +83,33 @@ def server(input, output, session):
         return res
 
     # The raw data is a little jittery. Smooth it out by averaging a few samples
-    smooth_camera_eye = reactive_smooth(n_samples=5, smoother=xyz_mean)(camera_eye)
+    smooth_camera_info = reactive_smooth(n_samples=5, smoother=info_smoother)(
+        camera_info
+    )
 
     @reactive.Effect
     def update_plotly_camera():
         """Update Plotly camera using the hand tracking"""
-        widget.layout.scene.camera.eye = (
-            smooth_camera_eye() if input.use_smoothing() else camera_eye()
-        )
+        info = smooth_camera_info() if input.use_smoothing() else camera_info()
+        widget.layout.scene.camera.eye = info["eye"] if info is not None else None
+        widget.layout.scene.camera.up = info["up"] if info is not None else None
 
     # DEBUGGING ====
 
     @output
     @render.text
     def x_debug():
-        return camera_eye()["x"]
+        return camera_info()["eye"]["x"]
 
     @output
     @render.text
     def y_debug():
-        return camera_eye()["y"]
+        return camera_info()["eye"]["y"]
 
     @output
     @render.text
     def z_debug():
-        return camera_eye()["z"]
+        return camera_info()["eye"]["z"]
 
 
 app = App(app_ui, server)
